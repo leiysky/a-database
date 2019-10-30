@@ -104,7 +104,8 @@ func (dt Date) Timestamp() int64 {
 }
 
 type Schema struct {
-	Columns []*Column
+	TableName string
+	Columns   []*Column
 }
 
 func (s *Schema) String() string {

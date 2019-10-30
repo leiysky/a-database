@@ -13,6 +13,8 @@ func (g *idGen) Gen() Int64 {
 	return g.current
 }
 
-func NewIDGenerator() IDGenerator {
-	return &idGen{}
+func NewIDGenerator(start Int64) IDGenerator {
+	return &idGen{
+		current: start,
+	}
 }
