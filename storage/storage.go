@@ -7,6 +7,7 @@ type Storage interface {
 	Put([]byte, []byte) error
 	Delete([]byte) error
 	Scan([]byte, []byte) Iterator
+	ScanAll() Iterator
 }
 
 type Iterator interface {

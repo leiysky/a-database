@@ -116,6 +116,15 @@ func (s *Schema) String() string {
 	return b.String()
 }
 
+func (s *Schema) GetColumnByName(name string) *Column {
+	for _, c := range s.Columns {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
 type Column struct {
 	Type ColumnType
 

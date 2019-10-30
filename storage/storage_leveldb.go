@@ -37,3 +37,7 @@ func (s *KVStorage) Delete(k []byte) error {
 func (s *KVStorage) Scan(low, up []byte) Iterator {
 	return s.db.NewIterator(&util.Range{low, up}, nil)
 }
+
+func (s *KVStorage) ScanAll() Iterator {
+	return s.db.NewIterator(&util.Range{}, nil)
+}

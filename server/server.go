@@ -13,7 +13,7 @@ type Server struct {
 
 func NewServer(config *Config) *Server {
 	return &Server{
-		id:   util.NewIDGenerator(),
+		id:   util.NewIDGenerator(0),
 		http: gin.New(),
 		cfg:  config,
 	}

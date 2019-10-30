@@ -1,27 +1,28 @@
 package db
 
 import (
+	"github.com/leiysky/a-database/context"
+
 	"github.com/leiysky/a-database/executor"
 	"github.com/leiysky/a-database/parser"
-	"github.com/leiysky/a-database/storage"
 )
 
 type DB struct {
-	store storage.Storage
+	ctx *context.Context
 }
 
-func NewDB(store storage.Storage) *DB {
+func NewDB(ctx *context.Context) *DB {
 	return &DB{
-		store: store,
+		ctx: ctx,
 	}
 }
 
 func (db *DB) ExecuteQuery(sql string) error {
 	// Step 1: parse sql into ast
 	parser := parser.New()
-	node := parser.Parse(sql)
+	stmt := parser.Parse(sql)
 
 	// Step 2: compile ast into executor
-	exec := executor.Compile(node)
+	exec := executor.Compile(stmt)
 	return nil
 }
