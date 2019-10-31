@@ -38,7 +38,7 @@ func TestExpression(t *testing.T) {
 
 	schema := &util.Schema{
 		Columns: []*util.Column{
-			&util.Column{
+			{
 				Name: "c",
 				Type: util.ColumnInt32,
 			},

@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -52,68 +51,43 @@ func (e *Comparison) Eval(row *util.Row) interface{} {
 func (e *Comparison) EvalBool(row *util.Row) bool {
 	l := e.Left.Eval(row)
 	r := e.Right.Eval(row)
-	if reflect.TypeOf(l) != reflect.TypeOf(r) {
-		return false
-	}
 	switch e.Op {
 	case OpEq:
-		return reflect.DeepEqual(l, r)
+		result := tryCompare(l, r)
+		if result == 0 {
+			return true
+		}
+		return false
+	case OpNe:
+		result := tryCompare(l, r)
+		if result != 0 && result != -2 {
+			return true
+		}
+		return false
 	case OpGt:
-		if v, ok := l.(int); ok {
-			return v > r.(int)
-		} else if v, ok := l.(string); ok {
-			return strings.Compare(v, r.(string)) > 0
-		} else if v, ok := l.(int64); ok {
-			return v > r.(int64)
-		} else if v, ok := l.(uint); ok {
-			return v > r.(uint)
-		} else if v, ok := l.(uint64); ok {
-			return v > r.(uint64)
-		} else {
-			return false
+		result := tryCompare(l, r)
+		if result > 0 {
+			return true
 		}
+		return false
 	case OpGe:
-		if v, ok := l.(int); ok {
-			return v >= r.(int)
-		} else if v, ok := l.(string); ok {
-			return strings.Compare(v, r.(string)) >= 0
-		} else if v, ok := l.(int64); ok {
-			return v >= r.(int64)
-		} else if v, ok := l.(uint); ok {
-			return v >= r.(uint)
-		} else if v, ok := l.(uint64); ok {
-			return v >= r.(uint64)
-		} else {
-			return false
+		result := tryCompare(l, r)
+		if result >= 0 {
+			return true
 		}
+		return false
 	case OpLt:
-		if v, ok := l.(int); ok {
-			return v < r.(int)
-		} else if v, ok := l.(string); ok {
-			return strings.Compare(v, r.(string)) < 0
-		} else if v, ok := l.(int64); ok {
-			return v < r.(int64)
-		} else if v, ok := l.(uint); ok {
-			return v < r.(uint)
-		} else if v, ok := l.(uint64); ok {
-			return v < r.(uint64)
-		} else {
-			return false
+		result := tryCompare(l, r)
+		if result == -1 {
+			return true
 		}
+		return false
 	case OpLe:
-		if v, ok := l.(int); ok {
-			return v <= r.(int)
-		} else if v, ok := l.(string); ok {
-			return strings.Compare(v, r.(string)) <= 0
-		} else if v, ok := l.(int64); ok {
-			return v <= r.(int64)
-		} else if v, ok := l.(uint); ok {
-			return v <= r.(uint)
-		} else if v, ok := l.(uint64); ok {
-			return v <= r.(uint64)
-		} else {
-			return false
+		result := tryCompare(l, r)
+		if result == 0 || result == -1 {
+			return true
 		}
+		return false
 	default:
 		return false
 	}
@@ -166,6 +140,8 @@ func rewriteComparisonExpr(expr *sqlparser.ComparisonExpr) Expression {
 		e.Op = OpLe
 	case sqlparser.GreaterEqualStr:
 		e.Op = OpGe
+	case sqlparser.NotEqualStr:
+		e.Op = OpNe
 	default:
 		return nil
 	}
@@ -193,5 +169,46 @@ func rewriteSQLVal(expr *sqlparser.SQLVal) Expression {
 		}
 	default:
 		return nil
+	}
+}
+
+func tryCompare(l, r interface{}) int {
+	switch l.(type) {
+	case int, int64:
+		lv := tryCast(l, util.ColumnInt64).(int64)
+		rv := tryCast(r, util.ColumnInt64).(int64)
+		if lv > rv {
+			return 1
+		} else if lv == rv {
+			return 0
+		} else {
+			return -1
+		}
+	case uint, uint64:
+		lv := tryCast(l, util.ColumnUInt64).(uint64)
+		rv := tryCast(r, util.ColumnUInt64).(uint64)
+		if lv > rv {
+			return 1
+		} else if lv == rv {
+			return 0
+		} else {
+			return -1
+		}
+	case string:
+		lv := tryCast(l, util.ColumnFixedString).(string)
+		rv := tryCast(r, util.ColumnFixedString).(string)
+		return strings.Compare(lv, rv)
+	case util.Date:
+		lv := tryCast(l, util.ColumnDate).(util.Date).Timestamp()
+		rv := tryCast(r, util.ColumnDate).(util.Date).Timestamp()
+		if lv > rv {
+			return 1
+		} else if lv == rv {
+			return 0
+		} else {
+			return -1
+		}
+	default:
+		return -2
 	}
 }

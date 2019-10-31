@@ -22,23 +22,23 @@ func TestEncoding(t *testing.T) {
 
 	schema := &Schema{
 		Columns: []*Column{
-			&Column{
+			{
 				Type: ColumnInt64,
 			},
-			&Column{
+			{
 				Type: ColumnInt32,
 			},
-			&Column{
+			{
 				Type: ColumnUInt32,
 			},
-			&Column{
+			{
 				Type: ColumnUInt64,
 			},
-			&Column{
+			{
 				Type:   ColumnFixedString,
 				Strlen: 4,
 			},
-			&Column{
+			{
 				Type: ColumnDate,
 			},
 		},

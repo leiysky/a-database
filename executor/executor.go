@@ -29,6 +29,8 @@ func compile(stmt sqlparser.Statement) Executor {
 		return compileSelectStmt(v)
 	case *sqlparser.Insert:
 		return compileInsert(v)
+	case *sqlparser.Show:
+		return compileShow(v)
 	default:
 		panic("Unknown AST")
 	}
@@ -252,6 +254,44 @@ func (e *Insert) Open(ctx context.Context) {
 		store := ctx.Store()
 		store.Put([]byte(e.Keys[i]), BuildRaw(b, e.Values[i]))
 		b.Reset()
+	}
+}
+
+type ShowTables struct {
+	baseExecutor
+
+	tables chan string
+	count  int
+}
+
+func (e *ShowTables) Open(ctx context.Context) {
+	e.ctx = ctx
+	e.tables = make(chan string, 1)
+	for k := range e.ctx.Schemas() {
+		e.tables <- k
+		e.count++
+	}
+}
+
+func (e *ShowTables) Next() *util.Row {
+	if e.count == 0 {
+		return nil
+	}
+	tableName, ok := <-e.tables
+	if !ok {
+		return nil
+	}
+	e.count--
+	schema := &util.Schema{
+		TableName: "",
+		Columns: []*util.Column{{
+			Type: util.ColumnFixedString,
+			Name: "tables",
+		}},
+	}
+	return &util.Row{
+		Schema: schema,
+		Values: []interface{}{tableName},
 	}
 }
 

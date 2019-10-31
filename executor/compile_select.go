@@ -108,3 +108,10 @@ func compileLimit(limit *sqlparser.Limit) *Limit {
 	}
 	panic("Unknown Limit")
 }
+
+func compileShow(show *sqlparser.Show) Executor {
+	if show.Type == "tables" {
+		return &ShowTables{}
+	}
+	return nil
+}
