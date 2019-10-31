@@ -10,6 +10,15 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+var (
+	_ Executor = &Selection{}
+	_ Executor = &Projection{}
+	_ Executor = &Limit{}
+	_ Executor = &TableScan{}
+	_ Executor = &Insert{}
+	_ Executor = &Join{}
+)
+
 func Compile(stmt sqlparser.Statement) Executor {
 	return compile(stmt)
 }
@@ -25,22 +34,36 @@ func compile(stmt sqlparser.Statement) Executor {
 	}
 }
 
+func Exec(exec Executor, ctx context.Context) []*util.Row {
+	exec.Open(ctx)
+	var results []*util.Row
+	for {
+		r := exec.Next()
+		if r == nil {
+			break
+		}
+		results = append(results, r)
+	}
+	return results
+}
+
 type Executor interface {
 	Next() *util.Row
-	Open(*context.Context)
+	Open(context.Context)
 	Close()
 }
 
 type baseExecutor struct {
 	children []Executor
-	ctx      *context.Context
+	ctx      context.Context
 }
 
 func (e *baseExecutor) Next() *util.Row {
 	return nil
 }
 
-func (e *baseExecutor) Open(ctx *context.Context) {
+func (e *baseExecutor) Open(ctx context.Context) {
+	e.ctx = ctx
 	for _, c := range e.children {
 		c.Open(ctx)
 	}
@@ -55,7 +78,7 @@ func (e *baseExecutor) Close() {
 type Selection struct {
 	baseExecutor
 
-	predicate sqlparser.Expr
+	predicate Expression
 }
 
 func (e *Selection) Next() *util.Row {
@@ -64,14 +87,10 @@ func (e *Selection) Next() *util.Row {
 		if r == nil {
 			return nil
 		}
-		if eval(r, e.predicate) {
+		if e.predicate.Eval(r) == true {
 			return r
 		}
 	}
-}
-
-func eval(row *util.Row, predicate sqlparser.Expr) bool {
-	return true
 }
 
 type Projection struct {
@@ -82,6 +101,28 @@ type Projection struct {
 	to   []*sqlparser.ColName
 }
 
+func (e *Projection) Next() *util.Row {
+	row := e.children[0].Next()
+	if row == nil {
+		return nil
+	}
+	schema := &util.Schema{
+		TableName: row.Schema.TableName,
+	}
+	var cols []*util.Column
+	var vals []interface{}
+	for i, c := range e.from {
+		col, offset := row.Schema.GetColumnByName(c.Name.Lowered())
+		col.Name = e.to[i].Name.Lowered()
+		cols = append(cols, &col)
+		vals = append(vals, row.Values[offset])
+	}
+	schema.Columns = cols
+	row.Values = vals
+	row.Schema = schema
+	return row
+}
+
 type TableScan struct {
 	baseExecutor
 
@@ -90,10 +131,10 @@ type TableScan struct {
 	schema *util.Schema
 }
 
-func (e *TableScan) Open(ctx *context.Context) {
+func (e *TableScan) Open(ctx context.Context) {
 	e.ctx = ctx
-	e.itr = e.ctx.Store.ScanAll()
-	e.schema = e.ctx.Schemas[e.table.Name.String()]
+	e.itr = e.ctx.Store().ScanAll()
+	e.schema = e.ctx.Schemas()[e.table.Name.String()]
 	if e.schema == nil {
 		panic("Invalid context")
 	}
@@ -129,7 +170,8 @@ type Join struct {
 	rowBuff []*util.Row
 }
 
-func (e *Join) Open(ctx *context.Context) {
+func (e *Join) Open(ctx context.Context) {
+	e.ctx = ctx
 	for _, c := range e.children {
 		c.Open(ctx)
 	}
@@ -192,6 +234,134 @@ func join(l, r *util.Row) *util.Row {
 type Insert struct {
 	baseExecutor
 
-	Keys   []string
-	Values []*util.Row
+	TableName *sqlparser.TableName
+	Keys      []string
+	Values    []*util.Row
+}
+
+func (e *Insert) Open(ctx context.Context) {
+	e.ctx = ctx
+	schema := ctx.Schemas()[e.TableName.Name.String()]
+	for _, r := range e.Values {
+		r.Schema = schema
+		e.Keys = append(e.Keys, util.GenerateKey(int64(r.Values[0].(int)), e.TableName.Name.String()))
+	}
+
+	b := util.NewRawBuilder()
+	for i := range e.Keys {
+		store := ctx.Store()
+		store.Put([]byte(e.Keys[i]), BuildRaw(b, e.Values[i]))
+		b.Reset()
+	}
+}
+
+func tryCast(v interface{}, tp util.ColumnType) interface{} {
+	switch tp {
+	case util.ColumnInt32:
+		return castInt32(v)
+	case util.ColumnInt64:
+		return castInt64(v)
+	case util.ColumnUInt32:
+		return castUInt32(v)
+	case util.ColumnUInt64:
+		return castUInt64(v)
+	default:
+		return v
+	}
+}
+
+func castInt32(v interface{}) int {
+	switch value := v.(type) {
+	case int:
+		return int(value)
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case uint:
+		return int(value)
+	case uint32:
+		return int(value)
+	case uint64:
+		return int(value)
+	default:
+		return 0
+	}
+}
+
+func castInt64(v interface{}) int64 {
+	switch value := v.(type) {
+	case int:
+		return int64(value)
+	case int32:
+		return int64(value)
+	case int64:
+		return int64(value)
+	case uint:
+		return int64(value)
+	case uint32:
+		return int64(value)
+	case uint64:
+		return int64(value)
+	default:
+		return 0
+	}
+}
+
+func castUInt32(v interface{}) uint {
+	switch value := v.(type) {
+	case int:
+		return uint(value)
+	case int32:
+		return uint(value)
+	case int64:
+		return uint(value)
+	case uint:
+		return uint(value)
+	case uint32:
+		return uint(value)
+	case uint64:
+		return uint(value)
+	default:
+		return 0
+	}
+}
+
+func castUInt64(v interface{}) uint64 {
+	switch value := v.(type) {
+	case int:
+		return uint64(value)
+	case int32:
+		return uint64(value)
+	case int64:
+		return uint64(value)
+	case uint:
+		return uint64(value)
+	case uint32:
+		return uint64(value)
+	case uint64:
+		return uint64(value)
+	default:
+		return 0
+	}
+}
+
+func BuildRaw(b *util.RawBuilder, row *util.Row) []byte {
+	for i, c := range row.Schema.Columns {
+		switch c.Type {
+		case util.ColumnInt32:
+			b.AppendInt32(tryCast(row.Values[i], util.ColumnInt32).(int))
+		case util.ColumnInt64:
+			b.AppendInt64(tryCast(row.Values[i], util.ColumnInt64).(int64))
+		case util.ColumnUInt32:
+			b.AppendUInt32(tryCast(row.Values[i], util.ColumnUInt32).(uint))
+		case util.ColumnUInt64:
+			b.AppendUInt64(tryCast(row.Values[i], util.ColumnUInt64).(uint64))
+		case util.ColumnFixedString:
+			b.AppendFixedString(tryCast(row.Values[i], util.ColumnFixedString).(string))
+		case util.ColumnDate:
+			b.AppendDate(tryCast(row.Values[i], util.ColumnDate).(util.Date))
+		}
+	}
+	return b.Spawn()
 }

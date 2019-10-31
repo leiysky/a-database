@@ -15,7 +15,7 @@ func TestEncoding(t *testing.T) {
 	b.AppendInt32(-321)
 	b.AppendUInt32(1234)
 	b.AppendUInt64(4321)
-	b.AppendFixedString([]byte{1, 2, 3, 4})
+	b.AppendFixedString("1234")
 	b.AppendDate(now)
 
 	buff := b.Spawn()
@@ -50,6 +50,6 @@ func TestEncoding(t *testing.T) {
 	assert.Equal(row.Values[1], Int32(-321))
 	assert.Equal(row.Values[2], UInt32(1234))
 	assert.Equal(row.Values[3], UInt64(4321))
-	assert.Equal(row.Values[4], FixedString{1, 2, 3, 4})
+	assert.Equal(row.Values[4], FixedString("1234"))
 	assert.Equal(row.Values[5].(Date).Timestamp(), now.Timestamp())
 }

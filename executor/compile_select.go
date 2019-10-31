@@ -7,6 +7,8 @@ import (
 )
 
 func compileSelectStmt(stmt *sqlparser.Select) Executor {
+	var exec Executor
+
 	var cols []*sqlparser.ColName
 	projection := &Projection{}
 	for _, expr := range stmt.SelectExprs {
@@ -21,13 +23,28 @@ func compileSelectStmt(stmt *sqlparser.Select) Executor {
 		projection.to = cols
 	}
 
-	compileWhere(stmt.Where)
+	datasource := compileFrom(stmt.From)
 
-	compileLimit(stmt.Limit)
+	exec = datasource
 
-	compileFrom(stmt.From)
+	if stmt.Where != nil {
+		selection := compileWhere(stmt.Where)
+		selection.children = append(selection.children, exec)
+		exec = selection
+	}
 
-	return nil
+	if stmt.Limit != nil {
+		limit := compileLimit(stmt.Limit)
+		limit.children = append(limit.children, exec)
+		exec = limit
+	}
+
+	if projection != nil {
+		projection.children = append(projection.children, exec)
+		exec = projection
+	}
+
+	return exec
 }
 
 func extractField(expr sqlparser.SelectExpr) *sqlparser.ColName {
@@ -65,14 +82,20 @@ func compileFrom(exprs sqlparser.TableExprs) Executor {
 	return join
 }
 
-func compileWhere(exprs *sqlparser.Where) *Selection {
-	return &Selection{}
+func compileWhere(expr *sqlparser.Where) *Selection {
+	e := rewriteExpr(expr.Expr)
+	return &Selection{
+		predicate: e,
+	}
 }
 
 func extractTableName(expr sqlparser.TableExpr) *sqlparser.TableName {
 	alias := expr.(*sqlparser.AliasedTableExpr)
-	name := alias.Expr.(sqlparser.SimpleTableExpr).(*sqlparser.TableName)
-	return name
+	switch name := alias.Expr.(type) {
+	case sqlparser.TableName:
+		return &name
+	}
+	return nil
 }
 
 func compileLimit(limit *sqlparser.Limit) *Limit {

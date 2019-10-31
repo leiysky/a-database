@@ -1,3 +1,0 @@
-[submodule "parser/parser"]
-	path = parser/parser
-	url = git@github.com:leiysky/parser-1.git

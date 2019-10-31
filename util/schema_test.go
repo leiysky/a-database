@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/leiysky/go-utils/assert"
@@ -30,4 +31,46 @@ func TestSchema(t *testing.T) {
 	buff := []byte(tmp)
 	newSchema := NewSchemaFromBytes(buff)
 	assert.Equal(tmp, newSchema.String())
+}
+
+func TestPrettify(t *testing.T) {
+	schema := &Schema{
+		Columns: []*Column{
+			&Column{
+				Name: "c1",
+				Type: ColumnInt32,
+			},
+			&Column{
+				Name:   "c2",
+				Type:   ColumnFixedString,
+				Strlen: 5,
+			},
+		},
+	}
+
+	rows := []*Row{
+		&Row{
+			Schema: schema,
+			Values: []interface{}{
+				123,
+				"hello",
+			},
+		},
+		&Row{
+			Schema: schema,
+			Values: []interface{}{
+				321,
+				"hello1",
+			},
+		},
+		&Row{
+			Schema: schema,
+			Values: []interface{}{
+				456,
+				"hello2",
+			},
+		},
+	}
+
+	fmt.Println(Prettify(rows))
 }

@@ -48,12 +48,18 @@ func readOneColumn(row []byte, offset int, column *Column) (interface{}, int) {
 	}
 }
 
+func NewRawBuilder() *RawBuilder {
+	return &RawBuilder{
+		buff: bytes.NewBufferString(""),
+	}
+}
+
 type RawBuilder struct {
-	buff bytes.Buffer
+	buff *bytes.Buffer
 }
 
 func (b *RawBuilder) Reset() {
-	b.buff = bytes.Buffer{}
+	b.buff = bytes.NewBufferString("")
 }
 
 func (b *RawBuilder) AppendInt64(v Int64) {
@@ -81,7 +87,7 @@ func (b *RawBuilder) AppendUInt32(v UInt32) {
 }
 
 func (b *RawBuilder) AppendFixedString(v FixedString) {
-	b.buff.Write(v)
+	b.buff.Write([]byte(v))
 }
 
 func (b *RawBuilder) AppendDate(v Date) {

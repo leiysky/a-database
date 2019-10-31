@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/leiysky/a-database/util"
@@ -17,8 +16,17 @@ func compileInsert(stmt *sqlparser.Insert) Executor {
 		})
 	}
 	rows := extractInsertRows(stmt.Rows)
-	fmt.Println(rows)
-	insert := &Insert{}
+	rr := make([]*util.Row, len(rows))
+	for i := range rows {
+		row := &util.Row{
+			Values: rows[i],
+		}
+		rr[i] = row
+	}
+	insert := &Insert{
+		Values:    rr,
+		TableName: &stmt.Table,
+	}
 	return insert
 }
 
