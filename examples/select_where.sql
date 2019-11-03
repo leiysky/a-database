@@ -1,0 +1,1 @@
+select * from my_table where pk = 1

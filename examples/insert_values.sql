@@ -1,0 +1,1 @@
+insert into my_table values (1, 2, 3, "fine"),(2, 3, 4, "what"),(3, 1, 1, "fuck");
