@@ -135,7 +135,10 @@ type TableScan struct {
 
 func (e *TableScan) Open(ctx context.Context) {
 	e.ctx = ctx
-	e.itr = e.ctx.Store().ScanAll()
+	prefix := []byte(e.table.Name.String() + ":")
+	prefixBound := []byte(e.table.Name.String() + ":")
+	prefixBound[len(prefixBound)-1]++
+	e.itr = e.ctx.Store().Scan(prefix, prefixBound)
 	e.schema = e.ctx.Schemas()[e.table.Name.String()]
 	if e.schema == nil {
 		panic("Invalid context")
