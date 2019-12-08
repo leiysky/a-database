@@ -39,3 +39,5 @@ examples/ $ ./run-sql.sh show_table.sql
 For now `a-database` is just a crude database, which means there are many issues you can solve.
 
 We'll publish some issues for contributors.
+
+You can contact me with email. [leiysky@outlook.com](mailto:leiysky@outlook.com)
